@@ -1,0 +1,1089 @@
+templates:
+  # ─── CD Pipelines ───────────────────────────────────────────────────────────
+  - name: cd-go
+    description: "CD pipeline for Go services (Docker + multi-registry + multi-deploy)"
+    path: cd-go.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name (e.g. user-service):"
+
+      - name: go_version
+        type: string
+        required: false
+        prompt: "Go version:"
+        default: "1.22"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD (e.g. main):"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: test_command
+        type: string
+        required: false
+        prompt: "Test command:"
+        default: "go test ./..."
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run DB migrations on deploy?"
+        default: false
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 8080
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-bun
+    description: "CD pipeline for Bun/Node services (Docker + multi-registry + multi-deploy)"
+    path: cd-bun.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name (e.g. api-gateway):"
+
+      - name: bun_version
+        type: string
+        required: false
+        prompt: "Bun version:"
+        default: "latest"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: test_command
+        type: string
+        required: false
+        prompt: "Test command:"
+        default: "bun test"
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run DB migrations on deploy?"
+        default: false
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 3000
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-fe
+    description: "CD pipeline for Frontend apps (Next.js, React, Vue, Nuxt, SvelteKit, Angular, Astro, Remix)"
+    path: cd-fe.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "App name (e.g. dashboard):"
+
+      - name: framework
+        type: options
+        required: true
+        prompt: "Framework:"
+        options:
+          - nextjs
+          - react
+          - vue
+          - nuxt
+          - sveltekit
+          - angular
+          - astro
+          - remix
+        default: nextjs
+
+      - name: package_manager
+        type: options
+        required: true
+        prompt: "Package manager:"
+        options:
+          - bun
+          - pnpm
+          - npm
+          - yarn
+        default: bun
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - vercel
+          - netlify
+          - s3
+          - k8s
+        default: vercel
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: node_version
+        type: string
+        required: false
+        prompt: "Node.js version (for npm/pnpm/yarn):"
+        default: "20"
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: build_dir
+        type: string
+        required: false
+        prompt: "Build output directory:"
+        default: "dist"
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path (only for k8s deploy):"
+        default: "Dockerfile"
+
+  - name: cd-rust
+    description: "CD pipeline for Rust services (Docker + Cargo + multi-registry + multi-deploy)"
+    path: cd-rust.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: rust_version
+        type: options
+        required: false
+        prompt: "Rust toolchain:"
+        options:
+          - stable
+          - beta
+          - nightly
+        default: stable
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run DB migrations (sqlx migrate run)?"
+        default: false
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 8080
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-php
+    description: "CD pipeline for PHP services (Laravel / Symfony / Plain)"
+    path: cd-php.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: framework
+        type: options
+        required: true
+        prompt: "PHP framework:"
+        options:
+          - laravel
+          - symfony
+          - plain
+        default: laravel
+
+      - name: php_version
+        type: string
+        required: false
+        prompt: "PHP version:"
+        default: "8.3"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - forge
+          - fly
+          - railway
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run DB migrations on deploy?"
+        default: true
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 9000
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-python
+    description: "CD pipeline for Python services (FastAPI / Django / Flask + uv/poetry/pip)"
+    path: cd-python.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: framework
+        type: options
+        required: true
+        prompt: "Python framework:"
+        options:
+          - fastapi
+          - django
+          - flask
+          - plain
+        default: fastapi
+
+      - name: package_manager
+        type: options
+        required: true
+        prompt: "Package manager:"
+        options:
+          - uv
+          - poetry
+          - pip
+          - pipenv
+        default: uv
+
+      - name: python_version
+        type: string
+        required: false
+        prompt: "Python version:"
+        default: "3.12"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run DB migrations on deploy?"
+        default: false
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 8000
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-java
+    description: "CD pipeline for Java services (Spring Boot + Maven/Gradle)"
+    path: cd-java.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: java_version
+        type: options
+        required: false
+        prompt: "Java version (LTS):"
+        options:
+          - "21"
+          - "17"
+          - "11"
+        default: "21"
+
+      - name: build_tool
+        type: options
+        required: true
+        prompt: "Build tool:"
+        options:
+          - gradle
+          - maven
+        default: gradle
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 8080
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-kotlin
+    description: "CD pipeline for Kotlin services (Spring Boot / Ktor)"
+    path: cd-kotlin.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: framework
+        type: options
+        required: true
+        prompt: "Kotlin framework:"
+        options:
+          - springboot
+          - ktor
+          - plain
+        default: springboot
+
+      - name: java_version
+        type: options
+        required: false
+        prompt: "JDK version:"
+        options:
+          - "21"
+          - "17"
+        default: "21"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run DB migrations on deploy?"
+        default: false
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 8080
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-ruby
+    description: "CD pipeline for Ruby services (Rails / Sinatra)"
+    path: cd-ruby.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: framework
+        type: options
+        required: true
+        prompt: "Ruby framework:"
+        options:
+          - rails
+          - sinatra
+          - plain
+        default: rails
+
+      - name: ruby_version
+        type: string
+        required: false
+        prompt: "Ruby version:"
+        default: "3.3"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run DB migrations on deploy?"
+        default: true
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 3000
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-dotnet
+    description: "CD pipeline for .NET services (ASP.NET Core)"
+    path: cd-dotnet.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: dotnet_version
+        type: options
+        required: false
+        prompt: ".NET version:"
+        options:
+          - "9.0"
+          - "8.0"
+          - "6.0"
+        default: "9.0"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - azure
+          - railway
+          - fly
+          - none
+        default: ssh
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run EF Core migrations on deploy?"
+        default: false
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 8080
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  - name: cd-elixir
+    description: "CD pipeline for Elixir/Phoenix services"
+    path: cd-elixir.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "Service name:"
+
+      - name: elixir_version
+        type: string
+        required: false
+        prompt: "Elixir version:"
+        default: "1.17"
+
+      - name: otp_version
+        type: string
+        required: false
+        prompt: "OTP version:"
+        default: "27"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: registry
+        type: options
+        required: true
+        prompt: "Container registry:"
+        options:
+          - ghcr
+          - dockerhub
+          - ecr
+        default: ghcr
+
+      - name: deploy_type
+        type: options
+        required: true
+        prompt: "Deployment target:"
+        options:
+          - ssh
+          - k8s
+          - fly
+          - railway
+          - none
+        default: fly
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before deploy?"
+        default: true
+
+      - name: has_migration
+        type: boolean
+        required: false
+        prompt: "Run Ecto migrations on deploy?"
+        default: true
+
+      - name: port
+        type: number
+        required: false
+        prompt: "Application port:"
+        default: 4000
+
+      - name: dockerfile_path
+        type: string
+        required: false
+        prompt: "Dockerfile path:"
+        default: "Dockerfile"
+
+  # ─── Mobile ─────────────────────────────────────────────────────────────────
+
+  - name: cd-flutter
+    description: "CD pipeline for Flutter apps (Android + iOS, Firebase/Play Store/TestFlight)"
+    path: cd-flutter.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "App name:"
+
+      - name: flutter_version
+        type: string
+        required: false
+        prompt: "Flutter version:"
+        default: "3.27.0"
+
+      - name: flutter_channel
+        type: options
+        required: false
+        prompt: "Flutter channel:"
+        options:
+          - stable
+          - beta
+        default: stable
+
+      - name: platform
+        type: options
+        required: true
+        prompt: "Build platform:"
+        options:
+          - both
+          - android
+          - ios
+        default: both
+
+      - name: android_deploy
+        type: options
+        required: true
+        prompt: "Android deployment target:"
+        options:
+          - firebase
+          - play_store
+          - none
+        default: firebase
+
+      - name: ios_deploy
+        type: options
+        required: true
+        prompt: "iOS deployment target:"
+        options:
+          - firebase
+          - testflight
+          - none
+        default: firebase
+
+      - name: android_flavor
+        type: string
+        required: false
+        prompt: "Android/iOS flavor (leave 'none' if not using flavors):"
+        default: "none"
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before build?"
+        default: true
+
+  - name: cd-react-native
+    description: "CD pipeline for React Native apps (Android + iOS, Firebase/Play Store/TestFlight/Expo)"
+    path: cd-react-native.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "App name:"
+
+      - name: package_manager
+        type: options
+        required: true
+        prompt: "Package manager:"
+        options:
+          - bun
+          - pnpm
+          - npm
+          - yarn
+        default: bun
+
+      - name: node_version
+        type: string
+        required: false
+        prompt: "Node.js version:"
+        default: "20"
+
+      - name: platform
+        type: options
+        required: true
+        prompt: "Build platform:"
+        options:
+          - both
+          - android
+          - ios
+        default: both
+
+      - name: android_deploy
+        type: options
+        required: true
+        prompt: "Android deployment target:"
+        options:
+          - firebase
+          - play_store
+          - expo
+          - none
+        default: firebase
+
+      - name: ios_deploy
+        type: options
+        required: true
+        prompt: "iOS deployment target:"
+        options:
+          - firebase
+          - testflight
+          - expo
+          - none
+        default: firebase
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before build?"
+        default: true
+
+  - name: cd-kmp
+    description: "CD pipeline for Kotlin Multiplatform (Android, iOS, JVM Desktop, Kotlin/JS)"
+    path: cd-kmp.lokio
+    output: .github/workflows/cd-<%= kebabCase(name) %>.yml
+    parameters:
+      - name: name
+        type: string
+        required: true
+        prompt: "App/library name:"
+
+      - name: java_version
+        type: options
+        required: false
+        prompt: "JDK version:"
+        options:
+          - "21"
+          - "17"
+        default: "21"
+
+      - name: targets
+        type: options
+        required: true
+        prompt: "Build targets:"
+        options:
+          - all
+          - both
+          - android
+          - ios
+          - jvm
+          - js
+        default: all
+
+      - name: android_deploy
+        type: options
+        required: false
+        prompt: "Android deployment target:"
+        options:
+          - firebase
+          - play_store
+          - none
+        default: firebase
+
+      - name: ios_deploy
+        type: options
+        required: false
+        prompt: "iOS deployment target:"
+        options:
+          - firebase
+          - testflight
+          - none
+        default: firebase
+
+      - name: branch
+        type: string
+        required: false
+        prompt: "Branch to trigger CD:"
+        default: "main"
+
+      - name: has_tests
+        type: boolean
+        required: false
+        prompt: "Run tests before build?"
+        default: true
+
+# ─── Lokio Check ──────────────────────────────────────────────────────────────
+# Verifies files conform to their template structure.
+# Rules are derived from your .lokio templates — no manual regex needed.
+#
+# Run:  lokio check
+# Pre-commit hook (.git/hooks/pre-commit):
+#   #!/bin/sh
+#   lokio check
+#
+check:
+  danger_mode: block      # block | warn
+  # templates:            # optional — omit to check ALL templates automatically
+  #   - component
+
+# ─── AI Standards Check ────────────────────────────────────────────────────────
+# Add your API key to lokio.local.yaml (auto-added to .gitignore):
+#   ai:
+#     api_key: YOUR_KEY_HERE
+#
+ai:
+  provider: gemini        # openai | anthropic | gemini | ollama | openrouter
+  model: gemini-3.1-flash-lite-preview
+
+standards:
+  - id: unit-test
+    description: "Every service must have a unit test file"
+    severity: danger      # danger | warning
+  - id: no-console-log
+    description: "No console.log in production code"
+    severity: warning

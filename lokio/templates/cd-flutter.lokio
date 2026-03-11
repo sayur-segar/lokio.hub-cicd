@@ -1,0 +1,255 @@
+name: CD · <%= name %>
+
+on:
+  push:
+    branches:
+      - <%= branch %>
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Build target"
+        type: choice
+        options: [android, ios, both]
+        default: both
+
+concurrency:
+  group: cd-<%= kebabCase(name) %>-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "<%= flutter_version %>"
+  JAVA_VERSION: "17"
+
+jobs:
+# ─────────────────────────────────────────────────────────────────────────────
+#  TEST
+# ─────────────────────────────────────────────────────────────────────────────
+<% if (has_tests === 'TRUE') { %>
+  test:
+    name: Test & Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: <%= flutter_channel %>
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify dependencies
+        run: flutter pub deps
+
+      - name: Analyze code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --coverage --machine > test-results.json
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: false
+<% } %>
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  BUILD ANDROID
+# ─────────────────────────────────────────────────────────────────────────────
+<% if (platform === 'android' || platform === 'both') { %>
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+<% if (has_tests === 'TRUE') { %>
+    needs: test
+<% } %>
+    outputs:
+      artifact-path: ${{ steps.build.outputs.artifact_path }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: <%= flutter_channel %>
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+
+      - name: Build App Bundle (AAB)
+        id: build
+        run: |
+<% if (android_flavor !== 'none') { %>
+          flutter build appbundle \
+            --release \
+            --flavor <%= android_flavor %> \
+            --target lib/main_<%= android_flavor %>.dart \
+            --dart-define=ENV=<%= android_flavor %>
+<% } else { %>
+          flutter build appbundle --release
+<% } %>
+          echo "artifact_path=build/app/outputs/bundle/release/app-release.aab" >> $GITHUB_OUTPUT
+        env:
+          KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_FILE: keystore.jks
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 7
+
+<% if (android_deploy === 'play_store') { %>
+      # ── Google Play Store ──────────────────────────────────────────────────
+      - name: Deploy to Play Store (Internal Track)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ secrets.ANDROID_PACKAGE_NAME }}
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+<% } else if (android_deploy === 'firebase') { %>
+      # ── Firebase App Distribution ──────────────────────────────────────────
+      - name: Deploy to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: testers
+          file: build/app/outputs/bundle/release/app-release.aab
+<% } %>
+<% } %>
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  BUILD IOS
+# ─────────────────────────────────────────────────────────────────────────────
+<% if (platform === 'ios' || platform === 'both') { %>
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+<% if (has_tests === 'TRUE') { %>
+    needs: test
+<% } %>
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: <%= flutter_channel %>
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Import Apple certificates
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+
+      - name: Download provisioning profile
+        uses: apple-actions/download-provisioning-profiles@v3
+        with:
+          bundle-id: ${{ secrets.IOS_BUNDLE_ID }}
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+
+      - name: Build IPA
+        run: |
+<% if (android_flavor !== 'none') { %>
+          flutter build ipa \
+            --release \
+            --flavor <%= android_flavor %> \
+            --target lib/main_<%= android_flavor %>.dart \
+            --export-options-plist ios/ExportOptions.plist
+<% } else { %>
+          flutter build ipa \
+            --release \
+            --export-options-plist ios/ExportOptions.plist
+<% } %>
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+
+<% if (ios_deploy === 'testflight') { %>
+      # ── TestFlight / App Store ─────────────────────────────────────────────
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: build/ios/ipa/*.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+<% } else if (ios_deploy === 'firebase') { %>
+      # ── Firebase App Distribution ──────────────────────────────────────────
+      - name: Deploy to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_IOS_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: testers
+          file: build/ios/ipa/*.ipa
+<% } %>
+<% } %>
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  NOTIFY
+# ─────────────────────────────────────────────────────────────────────────────
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [<% if (platform === 'android' || platform === 'both') { %>build-android<% } %><% if (platform === 'both') { %>, <% } %><% if (platform === 'ios' || platform === 'both') { %>build-ios<% } %>]
+    if: always()
+    steps:
+      - name: Slack notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: "CD Bot"
+          SLACK_ICON_EMOJI: ":iphone:"
+          SLACK_COLOR: ${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}
+          SLACK_MESSAGE: |
+            *<%= name %>* (Flutter <%= flutter_version %>) · ${{ github.ref_name }}
+            Platform: <%= platform %> | Deploy: <%= android_deploy %> / <%= ios_deploy %>
+            Status: ${{ contains(needs.*.result, 'failure') && 'FAILED :x:' || 'SUCCESS :white_check_mark:' }}
+            Triggered by: ${{ github.actor }}
